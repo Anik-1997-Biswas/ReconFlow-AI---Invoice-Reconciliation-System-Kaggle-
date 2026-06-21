@@ -1,0 +1,56 @@
+from pipeline import *
+
+invoice = invoice_agent.extract_invoice("INV002")
+
+state = AgentState()
+state.invoice = invoice
+
+tools = FinanceTools(purchase_orders)
+planner = MockPlannerLLM()
+agent = ToolCallingAgent(tools, planner)
+plan = agent.plan(state)
+
+print("PLAN")
+print(plan)
+
+results = agent.execute(plan, state)
+
+print("\nTOOL RESULTS")
+print(results)
+
+decision_agent = DecisionAgent()
+
+# Take one invoice
+results = agent.execute(plan, state)
+
+decision_agent = DecisionAgent()
+final_decision = decision_agent.decide(results)
+
+# inject invoice_id manually
+final_decision["invoice_id"] = state.invoice["invoice_id"]
+
+print(final_decision)
+
+# EMAIL AGENT  testing
+email_agent = EmailAgent()
+
+email = email_agent.generate_email(final_decision)
+
+print(email["subject"])
+print()
+print(email["body"])
+
+#Testing supervisor agent
+invoice_agent = InvoiceAgent(invoices)
+po_agent = POAgent(purchase_orders)
+decision_agent = DecisionAgent()
+email_agent = EmailAgent()
+
+supervisor = ReconFlowSupervisor(
+    invoice_agent,
+    po_agent,
+    decision_agent,
+    email_agent
+)
+
+result = supervisor.process_invoice("INV002")
